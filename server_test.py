@@ -1,7 +1,6 @@
 import logging
-import time
-
 import ntcore
+import time
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
@@ -10,18 +9,17 @@ if __name__ == "__main__":
     inst = ntcore.NetworkTableInstance.getDefault()
     inst.startServer()
 
-    # Initialize two subscriptions
     table = inst.getTable("vision")
 
-    # only keep the latest value for this topic
     sub1 = table.getFloatTopic("distance").subscribe(0.0)
 
-    # keep the last 10 values for this topic
     sub2 = table.getFloatTopic("pixels").subscribe(0.0)
 
-    # Periodically read from them
-    # - note sub1 only has 1 value, but sub2 sometimes has more than 1
+    sub3 = table.getFloatTopic("angle").subscribe(0.0)
+
     while True:
+        time.sleep(0.25)
         print("---", ntcore._now())
-        print("/data/distance:", sub1.get())
-        print("/data/pixels:", sub2.get())
+        print("/vision/distance:", sub1.get())
+        print("/vision/pixels:", sub2.get())
+        print("/vision/angle:", sub3.get())

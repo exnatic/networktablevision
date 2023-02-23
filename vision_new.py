@@ -5,6 +5,7 @@ from pipeline import Pipeline
 import ntcore as networktables
 import os
 from os.path import basename
+import math
 #import argparse
 #import logging
 
@@ -19,16 +20,21 @@ instance = networktables.NetworkTableInstance.getDefault()
 
 identity = f"{basename(__file__)}-{os.getpid()}"
 instance.startClient4(identity)
+#instance.setServer(server_name=args.ip, port=networktables.NetworkTableInstance.kDefaultPort4)
 
 instance.setServerTeam(team=3492, port=networktables.NetworkTableInstance.kDefaultPort4)
 
 table = instance.getTable("vision")
 distance = table.getFloatTopic("distance").publish()
 pixels = table.getFloatTopic("pixels").publish()
+angle = table.getFloatTopic("angle").publish()
 
 np.set_printoptions(suppress=True)
 
 classNames = [0, 1]
+
+height, width = 480, 640
+fov = 160
 
 camera = cv.VideoCapture(0)
 
@@ -56,6 +62,12 @@ def calibrateWidthAndFocalLength(gamePieceType: int) -> None:
 calibrateWidthAndFocalLength(0)
 calibrateWidthAndFocalLength(1)
 
+def calculateAngle(differenceInPixels: float) -> float:
+    diagonalPixels = math.sqrt(math.pow(height, 2) + math.pow(width, 2))
+    degreePerPixel = fov / diagonalPixels
+    angle = degreePerPixel * differenceInPixels
+    return angle
+
 def findDistanceAndPixels():
     if processedCone.find_distance_0_output != None \
         and processedCube.find_distance_1_output != None:
@@ -63,14 +75,17 @@ def findDistanceAndPixels():
                 if processedCube.extract_condata_1_output != None:
                     centerW = processedCube.extract_condata_1_output[1]
                     differenceInPixels = centerW - 320
-                    distance.set(float(processedCube.find_distance_1_output))
-                    pixels.set(float(differenceInPixels))
+                    distance.set(value=float(processedCube.find_distance_1_output))
+                    pixels.set(value=float(differenceInPixels))
+                    angle.set(value=float(calculateAngle(differenceInPixels=differenceInPixels)))
             else:
-                if processedCone.extract_condata_0_output != None:
-                    centerW = processedCone.extract_condata_0_output[1]
-                    differenceInPixels = centerW - 320
-                    distance.set(value=float(processedCube.find_distance_0_output), time=0)
-                    pixels.set(value=float(differenceInPixels), time=0)
+                if processedCone.extract_condata_0_output != None \
+                    and processedCube.find_distance_0_output != None:
+                        centerW = processedCone.extract_condata_0_output[1]
+                        differenceInPixels = centerW - 320
+                        distance.set(value=float(processedCube.find_distance_0_output), time=0)
+                        pixels.set(value=float(differenceInPixels), time=0)
+                        angle.set(value=float(calculateAngle(differenceInPixels=differenceInPixels)))
 
 while True:
     ret, image = camera.read()
